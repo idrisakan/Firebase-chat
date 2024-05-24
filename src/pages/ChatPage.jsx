@@ -1,11 +1,12 @@
 import { addDoc, collection, serverTimestamp, onSnapshot, query, where, orderBy } from "firebase/firestore";
 import { auth, db } from "../firebase/config";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Message from "../components/Message";
 
 
 const ChatPage = ({ room, setRoom }) => {
-const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState([]);
+    const lastMsg = useRef();
 
     // mesaj gönderme fonksiyonu
     const sendMessage = async (e) => {
@@ -20,14 +21,14 @@ const [messages, setMessages] = useState([]);
             room,
             author: {
                 id: auth.currentUser.uid,
-                name:auth.currentUser.displayName,
+                name: auth.currentUser.displayName,
                 photo: auth.currentUser.photoURL,
             },
             createdAt: serverTimestamp(),
         });
         //imputtu temizle
         e.target.reset();
-       
+
     };
 
     // mevcut odada gönderilen mesajları anlık olarak al.
@@ -36,23 +37,29 @@ const [messages, setMessages] = useState([]);
         const messagesCol = collection(db, 'messages');
 
         // verileri çekerken kullanılacak sorguyu oluştur
-      const q = query(messagesCol,where('room', '==', room),orderBy('createdAt', 'asc'));
+        const q = query(messagesCol, where('room', '==', room), orderBy('createdAt', 'asc'));
 
-// onSnapshot anlık olarak kolleksiyondaki  değişimleri izler kolleksiyon her değiştiğinde veridğimmiz fonksiyon ile kolleksiyondaki güncel dökümanlara erişiriz
+        // onSnapshot anlık olarak kolleksiyondaki  değişimleri izler kolleksiyon her değiştiğinde veridğimmiz fonksiyon ile kolleksiyondaki güncel dökümanlara erişiriz
         const unsub = onSnapshot(q, (snapshot) => {
-                //verilerin geçici olarak tutulduğu dizi
-                const tempMsg = [];
+            //verilerin geçici olarak tutulduğu dizi
+            const tempMsg = [];
 
-                //dökümanları dön  verilerine eriş
-                snapshot.docs.forEach((doc) => tempMsg.push(doc.data()));
+            //dökümanları dön  verilerine eriş
+            snapshot.docs.forEach((doc) => tempMsg.push(doc.data()));
 
 
-                // mesajları state aktar
-                setMessages(tempMsg)
-            })
-    // kullanıcıının sohbet sayfasından ayrılma anında veri çekmeyi sonlandır
-    return () => unsub();
-    },[]);
+            // mesajları state aktar
+            setMessages(tempMsg)
+        })
+        // kullanıcıının sohbet sayfasından ayrılma anında veri çekmeyi sonlandır
+        return () => unsub();
+    }, []);
+
+// yeni mesaj gönderilme olayını izle
+
+useEffect(() => {
+    lastMsg.current?.scrollIntoView({behavior: 'smooth'});
+},[messages]);
 
     return (
         <div className="chat-page">
@@ -63,9 +70,14 @@ const [messages, setMessages] = useState([]);
             </header>
 
             <main>
-            {messages.length > 0 ? messages.map((data, i) => (
-                <Message data={data} key={i}/>
-            )) : <p className="warn"><span>Henüz hiç mesaj gönderilmedi ilk mesajı siz gönderin</span></p>}
+                {messages.length > 0 ?
+                     <>
+                   { messages.map((data, i) => (
+                        <Message data={data} key={i} />
+                    ))}
+                    <div ref={lastMsg} />
+                    </>
+                    : <p className="warn"><span>Henüz hiç mesaj gönderilmedi ilk mesajı siz gönderin</span></p>}
 
             </main>
 
